@@ -22,6 +22,7 @@ function SlicedWord() {
   return (
     <div className="relative select-none" aria-label="Latest Trends">
       {/* spacer keeps layout height */}
+      
       <p className="invisible font-display text-[5.2rem] leading-[0.86] uppercase sm:text-[7rem] lg:text-[9.5rem]">Latest<br />Trends</p>
       {Array.from({ length: SLICES }).map((_, i) => {
         const top = (i / SLICES) * 100;

@@ -1,0 +1,9 @@
+{
+  "name": "aval-mantra",
+  "compatibility_date": "2026-09-01",
+  // Serve the static export produced by `next build` (output: "export").
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}
