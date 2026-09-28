@@ -54,6 +54,9 @@ export default function Loader() {
       gsap.set(q(".lx-head"), { opacity: 0, y: 40 });
       gsap.set(q(".lx-letter"), { opacity: 0, y: 30, filter: "blur(10px)" });
       gsap.set(q(".lx-petal"), { opacity: 0, scale: 0.6, transformOrigin: "50% 100%" });
+      // The logo ships hidden in the HTML (see markup) so the finished mark never flashes before
+      // hydration; reveal it only now that every part is in its starting state.
+      gsap.set(q(".lx-logo"), { visibility: "visible" });
 
       // Where the header logo sits once the header has settled (it waits 14px higher while loading).
       const target = () => {
@@ -129,7 +132,7 @@ export default function Loader() {
       <div className="absolute inset-0 grid place-items-center">
         <div className="flex flex-col items-center">
           <div className="lx-wrap relative will-change-transform">
-          <svg viewBox={VB} className="lx-logo block w-[70vw] max-w-[460px] overflow-visible" fill={INK}>
+          <svg viewBox={VB} className="lx-logo block w-[70vw] max-w-[460px] overflow-visible" fill={INK} style={{ visibility: "hidden" }}>
             <defs>
               <radialGradient id="lx-soft">
                 <stop offset="0.72" stopColor="#fff" />
