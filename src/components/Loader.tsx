@@ -10,8 +10,8 @@ const GOLD = "#b8903f";
 const BG = "#fbfaf7";
 const VB = "188 132 3129 1045"; // same box as /brand/aval-mantra-mark.svg, so the photo mask lines up exactly
 const MARK = "/brand/aval-mantra-mark.svg";
-// Thickest solid point of the logo (the peacock's body), as a fraction of the logo box: the camera dives here.
-const DIVE = { x: 0.1323, y: 0.2708, radius: 56 / 3129 };
+const MARK_RATIO = 3129 / 1045;
+const IVORY = "#f7f3ee";
 
 function Part({ html, className }: { html: string; className?: string }) {
   return <g className={className} dangerouslySetInnerHTML={{ __html: html }} />;
@@ -20,9 +20,9 @@ function Part({ html, className }: { html: string; className?: string }) {
 /**
  * Quiet luxury intro with a seamless hand-off to the hero:
  * gold feather "eyes" drift in and settle → ink blooms outward from them to reveal the peacock →
- * letters come into focus one by one → lotus blooms → gold hairline draws beneath it →
- * the hero photo fills the logo's shape → the camera dives into the peacock until the photo fills
- * the screen (framed exactly like the hero) → loader is removed on the same frame, so the hero continues.
+ * letters come into focus one by one → lotus blooms →
+ * the white background fades away to the hero while the logo shrinks and glides into the header's
+ * logo spot (turning ivory on the way) → the header fades in around it, so the logo simply stays.
  */
 export default function Loader() {
   const root = useRef<HTMLDivElement>(null);
@@ -33,7 +33,6 @@ export default function Loader() {
       document.documentElement.dataset.loading = "1";
       window.scrollTo(0, 0);
       const q = gsap.utils.selector(root);
-      const line = q(".lx-line")[0] as HTMLElement;
 
       // Ink bloom: each soft circle is centred on a feather "eye" and grows until the peacock and swoosh are revealed.
       const eyes = q(".lx-eye") as unknown as SVGGraphicsElement[];
@@ -55,37 +54,30 @@ export default function Loader() {
       gsap.set(q(".lx-head"), { opacity: 0, y: 40 });
       gsap.set(q(".lx-letter"), { opacity: 0, y: 30, filter: "blur(10px)" });
       gsap.set(q(".lx-petal"), { opacity: 0, scale: 0.6, transformOrigin: "50% 100%" });
-      gsap.set(line, { scaleX: 0 });
-      gsap.set(q(".lx-tag"), { opacity: 0, letterSpacing: "0.5em" });
-      gsap.set(q(".lx-img"), { scale: 1.3 });
 
-      // Photo-through-logo mask, positioned exactly over the drawn logo and zoomed around DIVE.
-      const through = q(".lx-through")[0] as HTMLElement;
-      const box = { x: 0, y: 0, w: 0, h: 0 };
-      const dive = { s: 1 };
-      const applyMask = () => {
-        const px = box.x + box.w * DIVE.x, py = box.y + box.h * DIVE.y;
-        const size = `${box.w * dive.s}px ${box.h * dive.s}px`;
-        const pos = `${px - (px - box.x) * dive.s}px ${py - (py - box.y) * dive.s}px`;
-        through.style.maskSize = size; through.style.webkitMaskSize = size;
-        through.style.maskPosition = pos; through.style.webkitMaskPosition = pos;
+      // Where the header logo sits once the header has settled (it waits 14px higher while loading).
+      const target = () => {
+        const el = document.querySelector('header a[aria-label="Aval Mantra home"] [role="img"]');
+        const r = el?.getBoundingClientRect();
+        if (!r || !r.width) return null;
+        const h = r.height, w = h * MARK_RATIO; // mask is "contain": height-limited
+        return { cx: r.left + r.width / 2, cy: r.top + 14 + h / 2, h, w };
       };
-      const alignMask = () => {
-        const r = (q(".lx-logo")[0] as Element).getBoundingClientRect();
-        Object.assign(box, { x: r.left, y: r.top, w: r.width, h: r.height });
-        applyMask();
+      const wrap = q(".lx-wrap")[0] as HTMLElement;
+      const fly = { x: 0, y: 0, s: 1 };
+      const computeFly = () => {
+        const t = target();
+        const r = wrap.getBoundingClientRect();
+        if (!t) return;
+        fly.x = t.cx - (r.left + r.width / 2);
+        fly.y = t.cy - (r.top + r.height / 2);
+        fly.s = t.h / r.height;
       };
-      // zoom until the peacock's body is wider than the screen
-      const maxZoom = () => (Math.hypot(window.innerWidth, window.innerHeight) / (box.w * DIVE.radius)) * 0.6;
 
       const tl = gsap.timeline({
         paused: true,
         defaults: { ease: "power3.out" },
-        onComplete: () => {
-          delete document.documentElement.dataset.loading;
-          window.__lenis?.start();
-          setDone(true);
-        },
+        onComplete: () => setDone(true),
       });
 
       tl
@@ -96,20 +88,25 @@ export default function Loader() {
         .to(q(".lx-head"), { opacity: 1, y: 0, duration: 1, ease: "expo.out" }, 0.9)
         // 3. letters come into focus one by one
         .to(q(".lx-letter"), { opacity: 1, y: 0, filter: "blur(0px)", duration: 1, stagger: 0.07, ease: "expo.out" }, 1.1)
-        // 4. lotus blooms, hairline and tagline
+        // 4. lotus blooms
         .to(q(".lx-petal"), { opacity: 1, scale: 1, duration: 1, stagger: { each: 0.07, from: "center" }, ease: "back.out(1.6)" }, 1.7)
-        .to(line, { scaleX: 1, duration: 1.1, ease: "expo.inOut" }, 1.9)
-        .to(q(".lx-tag"), { opacity: 1, letterSpacing: "0.38em", duration: 1.2 }, 2.1)
-        // 5. the photo fills the logo: the black mark fades into the hero photo seen through the logo shape
-        .add(alignMask, 2.9)
-        .to(q(".lx-line, .lx-tag"), { opacity: 0, duration: 0.6, ease: "power2.inOut" }, 3.0)
-        .to(q(".lx-through"), { opacity: 1, duration: 0.9, ease: "power2.inOut" }, 3.0)
-        .to(q(".lx-logo"), { opacity: 0, duration: 0.9, ease: "power2.inOut" }, 3.05)
-        // 6. dive into the peacock until the photo fills the screen
-        .to(dive, { s: () => maxZoom(), duration: 1.7, ease: "power3.in", onUpdate: applyMask }, 4.0)
-        .to(q(".lx-full"), { opacity: 1, duration: 0.45, ease: "power1.in" }, 5.25)
-        .to(q(".lx-img"), { scale: 1.12, duration: 1.7, ease: "power2.inOut" }, 4.0) // hero starts at 1.12
-        .add(() => window.dispatchEvent(new Event("am:loaded")), 5.7);
+        // 5. white fades to the hero while the logo glides into the header's logo spot
+        .add(() => {
+          computeFly();
+          window.dispatchEvent(new Event("am:loaded"));
+          if (root.current) root.current.style.pointerEvents = "none";
+        }, 2.9)
+        .to(root.current, { backgroundColor: "rgba(251,250,247,0)", duration: 1.3, ease: "power2.inOut" }, 2.9)
+        .to(q(".lx-logo"), { opacity: 0, duration: 0.4, ease: "power1.inOut" }, 2.9)
+        .to(q(".lx-mono"), { opacity: 1, duration: 0.4, ease: "power1.inOut" }, 2.9)
+        .to(q(".lx-mono"), { color: IVORY, duration: 1.1, ease: "power2.inOut" }, 3.05)
+        .to(wrap, { x: () => fly.x, y: () => fly.y, scale: () => fly.s, duration: 1.35, ease: "expo.inOut" }, 2.9)
+        // 6. header fades in around the logo, then the loader's copy steps aside
+        .add(() => {
+          delete document.documentElement.dataset.loading;
+          window.__lenis?.start();
+        }, 4.25)
+        .to(q(".lx-mono"), { opacity: 0, duration: 0.9, ease: "power1.inOut" }, 4.3);
 
       if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) tl.timeScale(3);
 
@@ -128,33 +125,10 @@ export default function Loader() {
   if (done) return null;
 
   return (
-    <div ref={root} className="fixed inset-0 z-[100] overflow-hidden" style={{ background: BG }} aria-hidden>
-      {/* hero photo seen through the logo shape (framed identically to <Hero />) */}
-      <div
-        className="lx-through absolute inset-0 bg-night opacity-0"
-        style={{ maskImage: `url(${MARK})`, WebkitMaskImage: `url(${MARK})`, maskRepeat: "no-repeat", WebkitMaskRepeat: "no-repeat" }}
-      >
-        <picture>
-          <source media="(max-width: 767px)" srcSet="/media/img/hero-mobile.webp" />
-          <img src="/media/img/hero-desktop.webp" alt="" className="lx-img h-full w-full object-cover object-[50%_30%] will-change-transform md:object-[65%_40%]" />
-        </picture>
-        <div className="absolute inset-0 bg-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
-      </div>
-      {/* unmasked copy that takes over at the end of the dive */}
-      <div className="lx-full absolute inset-0 bg-night opacity-0">
-        <picture>
-          <source media="(max-width: 767px)" srcSet="/media/img/hero-mobile.webp" />
-          <img src="/media/img/hero-desktop.webp" alt="" className="lx-img h-full w-full object-cover object-[50%_30%] will-change-transform md:object-[65%_40%]" />
-        </picture>
-        <div className="absolute inset-0 bg-black/10" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
-      </div>
-
+    <div ref={root} className="fixed inset-0 z-[100] overflow-hidden" style={{ backgroundColor: BG }} aria-hidden>
       <div className="absolute inset-0 grid place-items-center">
         <div className="flex flex-col items-center">
+          <div className="lx-wrap relative will-change-transform">
           <svg viewBox={VB} className="lx-logo block w-[70vw] max-w-[460px] overflow-visible" fill={INK}>
             <defs>
               <radialGradient id="lx-soft">
@@ -175,10 +149,12 @@ export default function Loader() {
               {LOGO_PARTS.petals.map((h, i) => <Part key={i} html={h} className="lx-petal" />)}
             </g>
           </svg>
-          <span className="lx-line mt-6 block h-px w-28 origin-center md:mt-8 md:w-40" style={{ background: GOLD }} />
-          <p className="lx-tag mt-4 font-sans text-[0.58rem] font-medium text-ink/55 uppercase md:mt-5 md:text-[0.62rem]">
-            Boutique Sarees · Bengaluru
-          </p>
+          {/* single-colour copy used for the flight to the header (matches the header logo exactly) */}
+          <span
+            className="lx-mono absolute inset-0 bg-current opacity-0"
+            style={{ color: INK, mask: `url(${MARK}) center / contain no-repeat`, WebkitMask: `url(${MARK}) center / contain no-repeat` }}
+          />
+          </div>
         </div>
       </div>
       <style>{`.lm-hole{fill:${BG}}`}</style>
